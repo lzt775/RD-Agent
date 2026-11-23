@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import uuid
 from pathlib import Path
@@ -160,9 +161,15 @@ class FactorFBWorkspace(FBWorkspace):
                 execution_code_path.write_text((Path(__file__).parent / "factor_execution_template.txt").read_text())
 
             try:
+                native_python = os.getenv("RD_QLIB_PYTHON") if os.name == "nt" else None
+                command = ([native_python, str(execution_code_path)] if native_python
+                           else f"{FACTOR_COSTEER_SETTINGS.python_bin} {execution_code_path}")
+                child_env = ({k: v for k, v in os.environ.items() if not
+                              k.upper().endswith(("_API_KEY", "_API_TOKEN", "_AUTH_TOKEN"))} if native_python else None)
                 subprocess.check_output(
-                    f"{FACTOR_COSTEER_SETTINGS.python_bin} {execution_code_path}",
-                    shell=True,
+                    command,
+                    shell=not native_python,
+                    env=child_env,
                     cwd=self.workspace_path,
                     stderr=subprocess.STDOUT,
                     timeout=FACTOR_COSTEER_SETTINGS.file_based_execution_timeout,

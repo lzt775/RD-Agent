@@ -617,7 +617,8 @@ class LocalEnv(Env[ASpecificLocalConf]):
 
         # Handle volume links
         volumes = {}
-        if self.conf.extra_volumes is not None:
+        if self.conf.extra_volumes or (self.conf.extra_volumes is not None and not
+                                     (os.name == "nt" and os.environ.get("RD_QLIB_PYTHON"))):
             for lp, rp in self.conf.extra_volumes.items():
                 volumes[lp] = rp["bind"] if isinstance(rp, dict) else rp
             cache_path = "/tmp/sample" if "/sample/" in "".join(self.conf.extra_volumes.keys()) else "/tmp/full"
@@ -652,6 +653,24 @@ class LocalEnv(Env[ASpecificLocalConf]):
                         pass
 
         with _symlink_ctx(volumes):
+            if os.name == "nt" and os.environ.get("RD_QLIB_PYTHON"):
+                # Env.run supplies a POSIX command (including timeout and exit status).
+                # Git Bash translates only that shell layer; Python/qrun come from the selected prefix.
+                prefix = Path(os.environ["RD_QLIB_PYTHON"]).parent
+                git = shutil.which("git")
+                bash = os.environ.get("RD_GIT_BASH") or (Path(git).resolve().parents[1] / "bin/bash.exe" if git else None)
+                if not bash or not Path(bash).is_file():
+                    raise FileNotFoundError("Set RD_GIT_BASH to Git for Windows bin/bash.exe")
+                child = {**os.environ, **{k: str(v) for k, v in (env or {}).items()}}
+                child["PATH"] = os.pathsep.join(map(str, [prefix, prefix / "Scripts", prefix / "Library/bin",
+                                                         Path(bash).parents[1] / "usr/bin", os.environ["PATH"]]))
+                for key in list(child):
+                    if key.upper().endswith(("_API_KEY", "_API_TOKEN", "_AUTH_TOKEN")):
+                        del child[key]
+                result = subprocess.run([str(bash), "-c", entry or self.conf.default_entry], cwd=local_path,
+                                        env=child, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        encoding="utf-8", errors="replace")
+                return result.stdout, result.returncode
             # Setup environment
             if env is None:
                 env = {}
@@ -766,6 +785,9 @@ class CondaConf(LocalConf):
         This is called during initialization and can be called again after prepare()
         to ensure bin_path is set correctly even if the conda env was just created.
         """
+        if os.name == "nt" and os.environ.get("RD_QLIB_PYTHON"):
+            self.bin_path = str(Path(os.environ["RD_QLIB_PYTHON"]).parent)
+            return
         conda_path_result = subprocess.run(
             f"conda run -n {self.conda_env_name} --no-capture-output env | grep '^PATH='",
             capture_output=True,
@@ -855,6 +877,8 @@ class QlibCondaConf(CondaConf):
 class QlibCondaEnv(LocalEnv[QlibCondaConf]):
     def prepare(self) -> None:
         """Prepare the conda environment if not already created."""
+        if os.name == "nt" and os.environ.get("RD_QLIB_PYTHON"):
+            return
         try:
             envs = subprocess.run("conda env list", capture_output=True, text=True, shell=True)
             if self.conf.conda_env_name not in envs.stdout:

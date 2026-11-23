@@ -1,3 +1,5 @@
+import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -14,6 +16,14 @@ class QlibFBWorkspace(FBWorkspace):
     def __init__(self, template_folder_path: Path, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.inject_code_from_folder(template_folder_path)
+        provider = os.environ.get("RD_QLIB_PROVIDER")
+        if provider:
+            for name, code in list(self.file_dict.items()):
+                if name.endswith(".yaml"):
+                    configured = code.replace('"~/.qlib/qlib_data/cn_data"', json.dumps(provider))
+                    if os.name == "nt":
+                        configured = configured.replace("qlib_init:\n", "qlib_init:\n    kernels: 1\n", 1)
+                    self.inject_files(**{name: configured})
 
     def execute(self, qlib_config_name: str = "conf.yaml", run_env: dict = {}, *args, **kwargs) -> str:
         if MODEL_COSTEER_SETTINGS.env_type == "docker":
@@ -45,7 +55,7 @@ class QlibFBWorkspace(FBWorkspace):
             logger.log_object(ret_df, tag="Quantitative Backtesting Chart")
         else:
             logger.error("No result file found.")
-            return None, execute_qlib_log
+            return None, execute_qlib_log + "\n" + execute_log
 
         qlib_res_path = self.workspace_path / "qlib_res.csv"
         if qlib_res_path.exists():

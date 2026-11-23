@@ -37,7 +37,10 @@ def get_factor_env(
 ) -> Env:
     conf = FactorCoSTEERSettings()
     if hasattr(conf, "python_bin"):
-        env = LocalEnv(conf=(CondaConf(conda_env_name=os.environ.get("CONDA_DEFAULT_ENV"))))
+        env_name = os.environ.get("CONDA_DEFAULT_ENV")
+        if os.name == "nt" and os.environ.get("RD_QLIB_PYTHON"):
+            env_name = os.path.basename(os.path.dirname(os.environ["RD_QLIB_PYTHON"]))
+        env = LocalEnv(conf=CondaConf(conda_env_name=env_name))
     env.conf.extra_volumes = extra_volumes.copy()
     env.conf.running_timeout_period = running_timeout_period
     if enable_cache is not None:

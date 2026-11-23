@@ -52,8 +52,10 @@ class LiteLLMAPIBackend(APIBackend):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         if not self.__class__._has_logged_settings:
-            logger.info(f"{LITELLM_SETTINGS}")
-            logger.log_object(LITELLM_SETTINGS.model_dump(), tag="LITELLM_SETTINGS")
+            public_settings = LITELLM_SETTINGS.model_dump(include={"backend", "chat_model", "embedding_model",
+                                                                   "max_retry", "enable_response_schema"})
+            logger.info(f"{public_settings}")
+            logger.log_object(public_settings, tag="LITELLM_SETTINGS")
             self.__class__._has_logged_settings = True
         super().__init__(*args, **kwargs)
 
@@ -73,6 +75,11 @@ class LiteLLMAPIBackend(APIBackend):
         Call the embedding function
         """
         model_name = LITELLM_SETTINGS.embedding_model
+        if model_name == "local/char-hash-2048":
+            from sklearn.feature_extraction.text import HashingVectorizer
+
+            vectorizer = HashingVectorizer(analyzer="char_wb", ngram_range=(2, 4), n_features=2048)
+            return vectorizer.transform(input_content_list).toarray().tolist()
         logger.info(f"{LogColors.GREEN}Using emb model{LogColors.END} {model_name}", tag="debug_litellm_emb")
         if LITELLM_SETTINGS.log_llm_chat_content:
             logger.info(

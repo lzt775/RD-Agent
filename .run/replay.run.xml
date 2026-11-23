@@ -1,0 +1,22 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ETF 因子离线回放" type="PythonConfigurationType" factoryName="Python">
+    <module name="rdagent" />
+    <envs>
+      <env name="PYTHONUTF8" value="1" />
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
+    <option name="SDK_HOME" value="E:/Miniconda3/envs/rdagent-etf/python.exe" />
+    <option name="SDK_NAME" value="ETF (rdagent-etf)" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../quantumn" />
+    <option name="PARENT_ENVS" value="true" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../quantumn/scripts/rdagent_etf_parity.py" />
+    <option name="PARAMETERS" value="--replay configs/etf_close_location_5.txt --as-of 2026-11-20" />
+    <option name="MODULE_MODE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <method v="2" />
+  </configuration>
+</component>
