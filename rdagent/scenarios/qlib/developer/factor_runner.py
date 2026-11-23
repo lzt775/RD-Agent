@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pandas as pd
 from pandarallel import pandarallel
@@ -49,6 +50,9 @@ class QlibFactorRunner(CachedRunner[QlibFactorExperiment]):
         # return the new_feature
 
         concat_feature = pd.concat([SOTA_feature, new_feature], axis=1)
+        if os.getenv("RD_ETF_PROTOCOL") and concat_feature.index.get_level_values("instrument").nunique() == 1:
+            correlation = concat_feature.corr().iloc[:SOTA_feature.shape[1], SOTA_feature.shape[1]:].abs().max()
+            return new_feature.loc[:, correlation.fillna(0).to_numpy() < .99]
         IC_max = (
             concat_feature.groupby("datetime")
             .parallel_apply(

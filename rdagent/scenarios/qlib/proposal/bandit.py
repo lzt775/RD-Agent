@@ -38,10 +38,13 @@ def extract_metrics_from_experiment(experiment) -> Metrics:
     try:
         result = experiment.result
         ic = result.get("IC", 0.0)
+        if not np.isfinite(ic):
+            ic = 0.0
         icir = result.get("ICIR", 0.0)
         rank_ic = result.get("Rank IC", 0.0)
         rank_icir = result.get("Rank ICIR", 0.0)
-        arr = result.get("1day.excess_return_with_cost.annualized_return ", 0.0)
+        arr = result.get("1day.excess_return_with_cost.annualized_return",
+                         result.get("1day.excess_return_with_cost.annualized_return ", 0.0))
         ir = result.get("1day.excess_return_with_cost.information_ratio", 0.0)
         mdd = result.get("1day.excess_return_with_cost.max_drawdown", 1.0)  # Avoid division by zero
         sharpe = arr / -mdd if mdd != 0 else 0.0

@@ -1,4 +1,5 @@
 from copy import deepcopy
+import os
 from pathlib import Path
 
 from rdagent.app.qlib_rd_loop.conf import QUANT_PROP_SETTING
@@ -116,6 +117,11 @@ class QlibQuantScenario(Scenario):
 
     def simulator(self, tag=None) -> str:
         assert tag in [None, "factor", "model"]
+        if os.getenv("RD_ETF_PROTOCOL"):
+            return ("One ETF time series. Train on next-open to following-open returns. Qlib predictions below zero "
+                    "halve the ETF tactical sleeve at the next open; preserve the core and existing rebalance band. "
+                    "Portfolio net gain versus the original account is primary. IC here is time-series correlation. "
+                    "Report insufficient triggers, constant signals and retrospective evidence explicitly.")
         factor_simulator = "The factor code will be sent to the simulator:\n" + T(".prompts:qlib_factor_simulator").r()
         model_simulator = "The model code will be sent to the simulator:\n" + T(".prompts:qlib_model_simulator").r()
 
