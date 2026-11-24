@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from typing import Tuple
 
@@ -50,7 +51,9 @@ class QlibQuantHypothesisGen(FactorAndModelHypothesisGen):
     def prepare_context(self, trace: Trace) -> Tuple[dict, bool]:
 
         # ========= Bandit ==========
-        if QUANT_PROP_SETTING.action_selection == "bandit":
+        if QUANT_PROP_SETTING.action_selection in ("factor", "model"):
+            action = QUANT_PROP_SETTING.action_selection
+        elif QUANT_PROP_SETTING.action_selection == "bandit":
             if len(trace.hist) > 0:
                 metric = extract_metrics_from_experiment(trace.hist[-1][0])
                 prev_action = trace.hist[-1][0].hypothesis.action
@@ -79,6 +82,8 @@ class QlibQuantHypothesisGen(FactorAndModelHypothesisGen):
                 hypothesis_and_feedback=hypothesis_and_feedback,
                 last_hypothesis_and_feedback=last_hypothesis_and_feedback,
             )
+            if os.getenv("RD_ACTION_QUESTION"):
+                user_prompt += "\nUser's research question and model brief:\n" + os.environ["RD_ACTION_QUESTION"]
             resp = APIBackend().build_messages_and_create_chat_completion(user_prompt, system_prompt, json_mode=True)
 
             action = json.loads(resp).get("action", "factor")
@@ -96,6 +101,12 @@ class QlibQuantHypothesisGen(FactorAndModelHypothesisGen):
         elif action == "model":
             qaunt_rag = "1. In Quantitative Finance, market data could be time-series, and GRU model/LSTM model are suitable for them. Do not generate GNN model as for now.\n2. The training data consists of approximately 478,000 samples for the training set and about 128,000 samples for the validation set. Please design the hyperparameters accordingly and control the model size. This has a significant impact on the training results. If you believe that the previous model itself is good but the training hyperparameters or model hyperparameters are not optimal, you can return the same model and adjust these parameters instead.\n"
 
+        if action == "model" and os.getenv("RD_ETF_PROTOCOL"):
+            qaunt_rag = ("Design a compact single-ETF model for a short daily time series. "
+                         "Choose the architecture and training parameters for the actual training period. "
+                         + os.getenv("RD_ETF_EXECUTION_RULE", ""))
+        if action == "model" and os.getenv("RD_MODEL_BRIEF"):
+            qaunt_rag += "\nRequested architecture: " + os.environ["RD_MODEL_BRIEF"]
         if len(trace.hist) == 0:
             hypothesis_and_feedback = "No previous hypothesis and feedback available since it's the first round."
         else:
@@ -174,6 +185,6 @@ class QlibQuantHypothesisGen(FactorAndModelHypothesisGen):
             concise_observation=response_dict.get("concise_observation"),
             concise_justification=response_dict.get("concise_justification"),
             concise_knowledge=response_dict.get("concise_knowledge"),
-            action=response_dict.get("action"),
+            action=self.targets if QUANT_PROP_SETTING.action_selection in ("factor", "model") else response_dict.get("action"),
         )
         return hypothesis

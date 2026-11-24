@@ -118,8 +118,8 @@ class QlibQuantScenario(Scenario):
     def simulator(self, tag=None) -> str:
         assert tag in [None, "factor", "model"]
         if os.getenv("RD_ETF_PROTOCOL"):
-            return ("One ETF time series. Train on next-open to following-open returns. Qlib predictions below zero "
-                    "halve the ETF tactical sleeve at the next open; preserve the core and existing rebalance band. "
+            return ("One ETF time series. " + os.getenv("RD_ETF_EXECUTION_RULE", "Negative next-open to following-open predictions halve the tactical sleeve.") +
+                    " Preserve the core and existing rebalance band. "
                     "Portfolio net gain versus the original account is primary. IC here is time-series correlation. "
                     "Report insufficient triggers, constant signals and retrospective evidence explicitly.")
         factor_simulator = "The factor code will be sent to the simulator:\n" + T(".prompts:qlib_factor_simulator").r()

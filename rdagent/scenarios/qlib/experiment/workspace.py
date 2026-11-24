@@ -18,6 +18,9 @@ class QlibFBWorkspace(FBWorkspace):
     def __init__(self, template_folder_path: Path, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.inject_code_from_folder(template_folder_path)
+        training = json.loads(os.getenv("RD_FACTOR_TRAINING", "{}"))
+        if training:
+            self.inject_files(**{"rd_tabular.py": Path(__file__).with_name("rd_tabular.py").read_text(encoding="utf-8")})
         provider = os.environ.get("RD_QLIB_PROVIDER")
         if provider:
             for name, code in list(self.file_dict.items()):
@@ -37,13 +40,22 @@ class QlibFBWorkspace(FBWorkspace):
                     if os.getenv("RD_ETF_PROTOCOL"):
                         # Cross-sectional label normalization makes a single ETF label undefined.
                         configured = configured.replace("        - class: CSZScoreNorm\n          kwargs:\n              fields_group: label", "")
-                        configured = configured.replace("Ref($close, -2)/Ref($close, -1)", "Ref($open, -2)/Ref($open, -1)")
+                        horizon = int(os.getenv("RD_LABEL_HORIZON", "1"))
+                        configured = configured.replace("Ref($close, -2)/Ref($close, -1)", f"Ref($open, -{horizon+1})/Ref($open, -1)")
                         configured = configured.replace("n_jobs: 20", "n_jobs: 0")
                         # The stock-universe penalties suppress all splits on a few hundred raw ETF returns.
                         configured = configured.replace("lambda_l1: 205.6999", "lambda_l1: 0.0").replace(
                             "lambda_l2: 580.9768", "lambda_l2: 1.0")
                         configured = configured.split("        - class: SigAnaRecord", 1)[0]
                         configured += '\nexperiment_name: "{{ etf_exp_name }}"\n'
+                    if training and "        class: LGBModel\n" in configured:
+                        # Use the same train-only transformations on both sides of the comparison.
+                        configured = re.sub(r"(?ms)^    infer_processors:\n.*?(?=^    learn_processors:)", "", configured)
+                        model = ("    model:\n        class: FactorEstimator\n        module_path: rd_tabular.py\n"
+                                 "        kwargs: " + json.dumps(training) + "\n")
+                        configured, count = re.subn(r"(?ms)^    model:\n        class: LGBModel\n.*?(?=^    dataset:)", lambda _: model, configured)
+                        if count != 1:
+                            raise ValueError("无法定位 Qlib 因子训练器配置")
                     self.inject_files(**{name: configured})
 
     def execute(self, qlib_config_name: str = "conf.yaml", run_env: dict = {}, *args, **kwargs) -> str:

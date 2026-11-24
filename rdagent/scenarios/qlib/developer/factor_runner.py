@@ -141,7 +141,7 @@ class QlibFactorRunner(CachedRunner[QlibFactorExperiment]):
                     exist_sota_model_exp = True
                     break
             logger.info(f"Experiment execution ...")
-            if exist_sota_model_exp:
+            if exist_sota_model_exp and not os.getenv("RD_FACTOR_TRAINING"):
                 exp.experiment_workspace.inject_files(
                     **{"model.py": sota_model_exp.sub_workspace_list[0].file_dict["model.py"]}
                 )
