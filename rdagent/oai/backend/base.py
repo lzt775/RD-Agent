@@ -539,6 +539,15 @@ class APIBackend(ABC):
                 if chat_completion:
                     return self._create_chat_completion_auto_continue(*args, **kwargs)
             except Exception as e:  # noqa: BLE001
+                if getattr(e, "status_code", None) == 429:
+                    response = getattr(e, "response", None)
+                    try:
+                        body = response.json() if response is not None else {}
+                    except ValueError:
+                        body = {}
+                    error = body.get("error") if isinstance(body, dict) else None
+                    if isinstance(error, dict) and error.get("code") == "apikey_quota_exhausted":
+                        raise RuntimeError("apikey_quota_exhausted") from e
                 if hasattr(e, "message") and (
                     "'messages' must contain the word 'json' in some form" in e.message
                     or "\\'messages\\' must contain the word \\'json\\' in some form" in e.message

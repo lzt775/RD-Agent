@@ -42,6 +42,8 @@ class QlibFBWorkspace(FBWorkspace):
                         configured = configured.replace("        - class: CSZScoreNorm\n          kwargs:\n              fields_group: label", "")
                         horizon = int(os.getenv("RD_LABEL_HORIZON", "1"))
                         configured = configured.replace("Ref($close, -2)/Ref($close, -1)", f"Ref($open, -{horizon+1})/Ref($open, -1)")
+                        if os.getenv("RD_OPENING_GAP") == "1":
+                            configured = configured.replace(f"Ref($open, -{horizon+1})/Ref($open, -1)", "$exitprice/$entryprice")
                         configured = configured.replace("n_jobs: 20", "n_jobs: 0")
                         # The stock-universe penalties suppress all splits on a few hundred raw ETF returns.
                         configured = configured.replace("lambda_l1: 205.6999", "lambda_l1: 0.0").replace(

@@ -12,7 +12,7 @@ hypothesis_and_feedback: |-
   {% endfor %}
   ## Backtest Analysis and Feedback:
   {% if experiment.result is not none %}
-  Backtest Result: {{ experiment.result.loc[["IC", "1day.excess_return_without_cost.annualized_return", "1day.excess_return_without_cost.max_drawdown"]] }}
+  Backtest Result: {{ experiment.result }}
   {% endif %}
   Observation: {{ feedback.observations }}
   Hypothesis Evaluation: {{ feedback.hypothesis_evaluation }}
@@ -31,7 +31,7 @@ last_hypothesis_and_feedback: |-
   {% endfor %}
   ## Backtest Analysis and Feedback:
   {% if experiment.result is not none %}
-  Backtest Result: {{ experiment.result.loc[["IC", "1day.excess_return_without_cost.annualized_return", "1day.excess_return_without_cost.max_drawdown"]] }}
+  Backtest Result: {{ experiment.result }}
   {% endif %}
   Training Log: 
   Here, you need to focus on analyzing whether there are any issues with the training. If any problems are identified, you must correct them in the next iteration and clearly describe how the changes will be made in the hypothesis.
@@ -53,7 +53,7 @@ sota_hypothesis_and_feedback: |-
   {% endfor %}
   ## Backtest Analysis and Feedback:
   {% if experiment.result is not none %}
-  Backtest Result: {{ experiment.result.loc[["IC", "1day.excess_return_without_cost.annualized_return", "1day.excess_return_without_cost.max_drawdown"]] }}
+  Backtest Result: {{ experiment.result }}
   {% endif %}
   Training Log: {{ experiment.stdout }}
   Observation: {{ feedback.observations }}
