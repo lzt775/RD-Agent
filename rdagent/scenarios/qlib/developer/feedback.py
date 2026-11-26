@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -51,6 +52,46 @@ def process_results(current_result, sota_result):
     return format_filtered_combined_df(filtered_combined_df)
 
 
+def opening_gap_review(exp):
+    if os.environ.get("RD_OPENING_GAP") != "1":
+        return ""
+    guidance = (
+        "\n高开减仓评审：在 Reasoning 中分别评价原假设和仓位筛选。报告高开天数、信号和成交差异、"
+        "相对逢高开减仓的扣费收益差。按原假设指定的分组检查样本数与09:35至收盘的平均收益。"
+        "下表按零分组，仅适用于原假设以零为界时。缺少相应分组或消融实验时写明未验证。"
+        "不得仅凭组合IC或收益推断单因子失效、共线或因果关系。\n"
+    )
+    folder = exp.experiment_workspace.workspace_path
+    ledger_path = folder / "auction_daily.csv"
+    if not ledger_path.exists():
+        return guidance + "本次工作区缺逐日账本，无法核对逐日信号与成交。"
+    ledger = pd.read_csv(ledger_path, index_col="date", parse_dates=["date"])
+    high = ledger.loc[ledger.gap > 0]
+    evidence = {
+        "高开天数": len(high),
+        "模型发出卖出信号天数": int((high.score < 0).sum()),
+        "与逢高开减仓信号不同的日期": high.index[high.score >= 0].strftime("%Y-%m-%d").tolist(),
+        "模型实际减仓天数": int(ledger.model_order.ne(0).sum()),
+        "与逢高开减仓成交数量不同的日期": ledger.index[
+            ledger.model_order != ledger.all_high_order
+        ].strftime("%Y-%m-%d").tolist(),
+    }
+    if exp.result is not None and "gain_over_all_high_pp" in exp.result:
+        evidence["相对逢高开减仓扣费收益差（百分点）"] = float(exp.result["gain_over_all_high_pp"])
+    factors_path = folder / "combined_factors_df.parquet"
+    if factors_path.exists():
+        factors = pd.read_parquet(factors_path)["feature"].xs("SH588170", level="instrument").reindex(high.index)
+        groups = {}
+        for name, values in factors.items():
+            summary = {"缺值天数": int(values.isna().sum())}
+            for label, mask in [("大于零", values > 0), ("小于零", values < 0), ("等于零", values == 0)]:
+                returns = high.loc[mask, "label"].dropna()
+                summary[label] = {"有效天数": len(returns), "平均收益(%)": 100 * returns.mean() if len(returns) else None}
+            groups[str(name)] = summary
+        evidence["高开日因子分组"] = groups
+    return guidance + json.dumps(evidence, ensure_ascii=False, allow_nan=False)
+
+
 class QlibFactorExperiment2Feedback(Experiment2Feedback):
     def generate_feedback(self, exp: Experiment, trace: Trace) -> HypothesisFeedback:
         """
@@ -90,6 +131,7 @@ class QlibFactorExperiment2Feedback(Experiment2Feedback):
             task_details=tasks_factors,
             combined_result=combined_result,
         )
+        usr_prompt += opening_gap_review(exp)
 
         # Call the APIBackend to generate the response for hypothesis feedback
         response = APIBackend().build_messages_and_create_chat_completion(
@@ -155,6 +197,7 @@ class QlibModelExperiment2Feedback(Experiment2Feedback):
             exp=exp,
             exp_result=exp.result.loc[IMPORTANT_METRICS] if exp.result is not None else "execution failed",
         )
+        user_prompt += opening_gap_review(exp)
 
         # Call the APIBackend to generate the response for hypothesis feedback
         response = APIBackend().build_messages_and_create_chat_completion(
